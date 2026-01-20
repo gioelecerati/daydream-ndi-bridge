@@ -1,0 +1,16 @@
+# Daydream Bridge
+# Connects any NDI source to Daydream AI
+
+# Core dependencies
+numpy>=1.24.0
+Pillow>=10.0.0
+
+# macOS native (for screen capture fallback)
+pyobjc-framework-Cocoa>=10.0
+pyobjc-framework-Quartz>=10.0
+pyobjc-core>=10.0
+
+# NDI support via pure Python ctypes wrapper (no ndi-python package needed!)
+# Just install NDI Tools from: https://ndi.video/tools/
+# On macOS: Install "NDI SDK for Apple"
+

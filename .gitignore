@@ -1,0 +1,45 @@
+# Build directories
+build/
+cmake-build-*/
+out/
+
+# IDE files
+.vs/
+.vscode/
+*.xcodeproj/
+*.xcworkspace/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Compiled files
+*.dll
+*.dylib
+*.so
+*.bundle
+*.o
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.lib
+
+# macOS
+.DS_Store
+*.dSYM/
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+
+# API keys (never commit these!)
+*.key
+api_key.txt
+secrets.txt
+.env
+
