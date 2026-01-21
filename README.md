@@ -36,9 +36,9 @@ On first run, a browser window will open to sign in to [Daydream](https://app.da
 
 1. **Create an account** at [app.daydream.live](https://app.daydream.live) if you don't have one. The free trial is 10 hours of video.
 2. **Sign in** when the browser opens
-3. The app will automatically create and save an API key
+3. The app will automatically create and save an API key to `~/.daydream/credentials`
 
-Your credentials are stored locally at `~/.daydream/credentials` so you only need to sign in once.
+You only need to sign in once — the API key is saved locally and reused on subsequent runs.
 
 ## Usage
 
