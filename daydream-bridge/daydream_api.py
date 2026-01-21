@@ -228,7 +228,12 @@ class DaydreamAPI:
         if controlnets:
             params["controlnets"] = controlnets
         
+        # Generate unique stream name with timestamp
+        import time
+        stream_name = f"ndi_bridge_{int(time.time())}"
+        
         payload = {
+            "name": stream_name,
             "pipeline": "streamdiffusion",
             "params": params
         }
