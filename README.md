@@ -1,4 +1,4 @@
-# Daydream NDI Bridge
+# Daydream StreamDiffusionV1 NDI Bridge
 
 Real-time AI video transformation bridge using the [Daydream API](https://docs.daydream.live). Capture video via NDI and transform it with AI in real-time.
 
@@ -17,7 +17,6 @@ Real-time AI video transformation bridge using the [Daydream API](https://docs.d
 - Python 3.10+
 - [NDI Tools](https://ndi.video/tools/) installed
 - Active internet connection
-- [Daydream account](https://app.daydream.live)
 
 ## Installation
 
@@ -31,7 +30,15 @@ pip install -r requirements.txt
 python app.py
 ```
 
-On first run, a browser window will open for Daydream authentication.
+## Authentication
+
+On first run, a browser window will open to sign in to [Daydream](https://app.daydream.live):
+
+1. **Create an account** at [app.daydream.live](https://app.daydream.live) if you don't have one. The free trial is 10 hours of video.
+2. **Sign in** when the browser opens
+3. The app will automatically create and save an API key
+
+Your credentials are stored locally at `~/.daydream/credentials` so you only need to sign in once.
 
 ## Usage
 
