@@ -69,6 +69,31 @@ The bridge automatically scans for NDI sources on your network. Common sources i
 - **OBS Studio** - Use the NDI plugin
 - **Any NDI-capable application**
 
+## Alternative: Self-Hosted with Daydream Scope
+
+If you have a powerful GPU (Nvidia RTX 3090/4090/5090 with **24GB+ VRAM**), you can run AI video generation locally using [Daydream Scope](https://github.com/daydreamlive/scope) instead of the cloud API.
+
+**Scope features:**
+- Run everything locally — no cloud costs or internet required
+- StreamDiffusionV2, LongLive, Krea Realtime Video, and more models
+- LoRA support for custom styles
+- Interactive UI with timeline editor
+
+**Quick start:**
+1. Download the [Windows desktop app](https://github.com/daydreamlive/scope/releases) or install manually
+2. For manual install:
+   ```bash
+   git clone https://github.com/daydreamlive/scope.git
+   cd scope
+   uv run build
+   uv run daydream-scope
+   ```
+3. Open `http://localhost:8000` in your browser
+
+**Cloud option:** No GPU? Use the [RunPod template](https://github.com/daydreamlive/scope#runpod) to run Scope in the cloud.
+
+See the [Scope documentation](https://github.com/daydreamlive/scope) for full setup instructions.
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
@@ -76,4 +101,5 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## Credits
 
 - [Daydream](https://daydream.live) - Real-time AI video generation API
+- [Daydream Scope](https://github.com/daydreamlive/scope) - Self-hosted AI video generation
 - [NDI](https://ndi.video) - Network Device Interface
