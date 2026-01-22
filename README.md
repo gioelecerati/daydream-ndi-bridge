@@ -34,7 +34,7 @@ python app.py
 
 On first run, a browser window will open to sign in to [Daydream](https://app.daydream.live):
 
-1. **Create an account** at [app.daydream.live](https://app.daydream.live) if you don't have one. The free trial is 10 hours of video.
+1. **Create an account** at [daydream.live](https://daydream.live) if you don't have one. The free trial is 10 hours of video.
 2. **Sign in** when the browser opens
 3. The app will automatically create and save an API key to `~/.daydream/credentials`
 
