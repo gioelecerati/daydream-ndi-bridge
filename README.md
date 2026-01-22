@@ -2,6 +2,8 @@
 
 Real-time AI video transformation bridge using the [Daydream API](https://docs.daydream.live). Capture video via NDI and transform it with AI in real-time.
 
+https://github.com/user-attachments/assets/63260dd5-2756-4a99-8c85-fbf68503a0b8
+
 ## Features
 
 - **NDI Input** - Capture video from any NDI source on your network
