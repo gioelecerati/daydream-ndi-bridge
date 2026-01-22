@@ -138,6 +138,31 @@ CONTROL_PANEL_HTML = '''<!DOCTYPE html>
             gap: 12px;
         }
         
+        .url-bar {
+            padding: 12px 24px;
+            border-top: 1px solid var(--border);
+            background: var(--bg);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .url-bar input {
+            flex: 1;
+            padding: 10px 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+        }
+        
+        .url-bar .btn {
+            padding: 10px 16px;
+            font-size: 12px;
+        }
+        
         /* Right Panel - Controls */
         .controls-panel {
             flex: 1;
@@ -484,6 +509,10 @@ CONTROL_PANEL_HTML = '''<!DOCTYPE html>
                 <button class="btn btn-danger" id="stopBtn" onclick="stopStream()" disabled>Stop</button>
                 <button class="btn" onclick="openFullscreen()">↗</button>
             </div>
+            <div class="url-bar" id="urlBar" style="display: none;">
+                <input type="text" id="relayUrl" readonly onclick="this.select()">
+                <button class="btn" onclick="copyUrl()">Copy</button>
+            </div>
         </div>
         
         <div class="controls-panel">
@@ -682,8 +711,14 @@ CONTROL_PANEL_HTML = '''<!DOCTYPE html>
                     
                     document.getElementById('placeholder').style.display = 'none';
                     const frame = document.getElementById('outputFrame');
-                    frame.src = data.relay_url || '/relay';
+                    const relayUrl = data.relay_url || '/relay';
+                    frame.src = relayUrl;
                     frame.style.display = 'block';
+                    
+                    // Show URL bar with full URL for OBS
+                    const fullUrl = window.location.origin + '/relay';
+                    document.getElementById('relayUrl').value = fullUrl;
+                    document.getElementById('urlBar').style.display = 'flex';
                 } else {
                     throw new Error(data.error || 'Failed');
                 }
@@ -728,9 +763,17 @@ CONTROL_PANEL_HTML = '''<!DOCTYPE html>
                 
                 document.getElementById('outputFrame').style.display = 'none';
                 document.getElementById('placeholder').style.display = 'block';
+                document.getElementById('urlBar').style.display = 'none';
             } catch (e) {
                 showToast('Error', 'error');
             }
+        }
+        
+        function copyUrl() {
+            const urlInput = document.getElementById('relayUrl');
+            urlInput.select();
+            navigator.clipboard.writeText(urlInput.value);
+            showToast('URL copied to clipboard');
         }
         
         function openFullscreen() {
