@@ -42,7 +42,7 @@ You only need to sign in once — the API key is saved locally and reused on sub
 
 ## Usage
 
-1. **Start your NDI source** (VirtualDJ, OBS, or any NDI-capable app)
+1. **Start your NDI source** (VirtualDJ, Resolume, OBS, or any NDI-capable app)
 2. **Run the bridge** with `python app.py`
 3. **Open the control panel** in your browser (opens automatically)
 4. **Select your NDI source** from the dropdown
