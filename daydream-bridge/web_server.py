@@ -150,8 +150,12 @@ class DaydreamHTTPHandler(http.server.BaseHTTPRequestHandler):
             self._serve_api_status()
         elif path == '/api/sources':
             self._serve_ndi_sources()
+        elif path == '/scope/ice-servers':
+            self._serve_scope_ice_servers()
         elif path.startswith('/whip/result/'):
             self._serve_whip_result(path.split('/whip/result/')[-1])
+        elif path.startswith('/scope/result/'):
+            self._serve_scope_result(path.split('/scope/result/')[-1])
         elif path.startswith('/whep/result/'):
             self._serve_whep_result(path.split('/whep/result/')[-1])
         elif path == '/ws':
@@ -170,12 +174,22 @@ class DaydreamHTTPHandler(http.server.BaseHTTPRequestHandler):
             self._handle_whip_proxy(body)
         elif path == '/whep':
             self._handle_whep_proxy(body)
+        elif path == '/scope/offer':
+            self._handle_scope_offer(body)
+        elif path == '/scope/ice-candidate':
+            self._handle_scope_ice_candidate(body)
         elif path == '/api/stream/start':
             self._handle_stream_start(body)
         elif path == '/api/stream/update':
             self._handle_stream_update(body)
         elif path == '/api/stream/stop':
             self._handle_stream_stop()
+        elif path == '/api/scope/test':
+            self._handle_scope_test(body)
+        elif path == '/api/scope/pipeline/status':
+            self._handle_scope_pipeline_status(body)
+        elif path == '/api/scope/pipeline/load':
+            self._handle_scope_pipeline_load(body)
         else:
             self.send_error(404)
     
@@ -228,6 +242,29 @@ class DaydreamHTTPHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
     
+    def _serve_scope_ice_servers(self):
+        """Proxy ICE servers from Scope (includes TURN if HF_TOKEN is set on Scope)"""
+        ice_servers = [{"urls": ["stun:stun.l.google.com:19302"]}]
+        
+        if self.server.scope_url:
+            try:
+                from scope_client import ScopeClient
+                client = ScopeClient(self.server.scope_url)
+                scope_ice_servers = client.get_ice_servers()
+                if scope_ice_servers:
+                    ice_servers = scope_ice_servers
+                    print(f"✓ Got {len(ice_servers)} ICE servers from Scope (includes TURN)")
+            except Exception as e:
+                print(f"⚠ Could not get ICE servers from Scope: {e}")
+        
+        data = json.dumps({'iceServers': ice_servers}).encode()
+        self.send_response(200)
+        self._send_cors_headers()
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', len(data))
+        self.end_headers()
+        self.wfile.write(data)
+    
     def _handle_stream_start(self, body: bytes):
         """Start streaming with given config"""
         try:
@@ -237,6 +274,10 @@ class DaydreamHTTPHandler(http.server.BaseHTTPRequestHandler):
                 raise ValueError("Bridge not initialized")
             
             bridge = self.server.bridge
+            
+            # Check backend mode
+            backend = params.get('backend', 'daydream')
+            scope_url = params.get('scope_url', '')
             
             # Update config
             bridge.config.prompt = params.get('prompt', bridge.config.prompt)
@@ -255,18 +296,25 @@ class DaydreamHTTPHandler(http.server.BaseHTTPRequestHandler):
                     if bridge.ndi_receiver:
                         bridge.ndi_receiver.connect(selected)
             
-            # Start streaming
-            bridge._start_streaming('ndi')
+            # Start streaming based on backend
+            if backend == 'scope' and scope_url:
+                pipeline_id = params.get('pipeline_id', 'streamdiffusionv2')
+                bridge._start_streaming_scope(scope_url, 'ndi', pipeline_id)
+            else:
+                bridge._start_streaming('ndi')
             
             port = self.server.server_address[1]
             
             response = {
                 'success': True,
-                'stream_id': bridge.stream.id if bridge.stream else None,
-                'relay_url': f'/relay'
+                'stream_id': bridge.stream.id if bridge.stream else 'scope-session',
+                'relay_url': f'/relay',
+                'backend': backend
             }
             
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             response = {'success': False, 'error': str(e)}
         
         data = json.dumps(response).encode()
@@ -337,13 +385,87 @@ class DaydreamHTTPHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
     
+    def _handle_scope_test(self, body: bytes):
+        """Test connection to a Scope instance"""
+        try:
+            params = json.loads(body.decode('utf-8')) if body else {}
+            scope_url = params.get('url', '').strip()
+            
+            if not scope_url:
+                response = {'reachable': False, 'error': 'No URL provided'}
+            else:
+                from scope_client import test_scope_connection
+                response = test_scope_connection(scope_url)
+        except Exception as e:
+            response = {'reachable': False, 'error': str(e)}
+        
+        data = json.dumps(response).encode()
+        self.send_response(200)
+        self._send_cors_headers()
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', len(data))
+        self.end_headers()
+        self.wfile.write(data)
+    
+    def _handle_scope_pipeline_status(self, body: bytes):
+        """Get pipeline status from Scope"""
+        try:
+            params = json.loads(body.decode('utf-8')) if body else {}
+            scope_url = params.get('url', '').strip()
+            
+            if not scope_url:
+                response = {'status': 'error', 'error': 'No URL provided'}
+            else:
+                from scope_client import ScopeClient
+                client = ScopeClient(scope_url)
+                response = client.get_pipeline_status()
+                print(f"Pipeline status: {response}")  # Debug log
+        except Exception as e:
+            print(f"Pipeline status error: {e}")  # Debug log
+            response = {'status': 'error', 'error': str(e)}
+        
+        data = json.dumps(response).encode()
+        self.send_response(200)
+        self._send_cors_headers()
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', len(data))
+        self.end_headers()
+        self.wfile.write(data)
+    
+    def _handle_scope_pipeline_load(self, body: bytes):
+        """Load a pipeline on Scope"""
+        try:
+            params = json.loads(body.decode('utf-8')) if body else {}
+            scope_url = params.get('url', '').strip()
+            pipeline_id = params.get('pipeline_id', 'streamdiffusionv2')
+            
+            if not scope_url:
+                response = {'success': False, 'error': 'No URL provided'}
+            else:
+                from scope_client import ScopeClient
+                client = ScopeClient(scope_url)
+                success = client.load_pipeline(pipeline_id)
+                response = {'success': success, 'pipeline_id': pipeline_id}
+        except Exception as e:
+            response = {'success': False, 'error': str(e)}
+        
+        data = json.dumps(response).encode()
+        self.send_response(200)
+        self._send_cors_headers()
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', len(data))
+        self.end_headers()
+        self.wfile.write(data)
+    
     def _serve_status(self):
         """Serve current stream status"""
         status = {
             'state': self.server.state,
             'stream_id': self.server.stream_id,
             'whip_url': self.server.whip_url,
-            'whep_url': self.server.whep_url
+            'whep_url': self.server.whep_url,
+            'backend_mode': self.server.backend_mode,
+            'scope_url': self.server.scope_url
         }
         data = json.dumps(status).encode()
         self.send_response(200)
@@ -439,6 +561,151 @@ class DaydreamHTTPHandler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(error)
             del self.server.whip_requests[request_id]
+    
+    def _handle_scope_offer(self, body: bytes):
+        """Proxy WebRTC offer to Scope (bidirectional - sends video, receives processed)"""
+        if not self.server.scope_url:
+            self.send_error(404, "No Scope URL configured")
+            return
+        
+        try:
+            payload = json.loads(body.decode('utf-8'))
+            offer_sdp = payload.get('sdp', '')
+            
+            request_id = secrets.token_urlsafe(8)
+            
+            self.server.scope_requests[request_id] = {
+                'status': 'pending',
+                'answer': None,
+                'session_id': None,
+                'error': None
+            }
+            
+            def exchange_async():
+                try:
+                    from scope_client import ScopeClient
+                    client = ScopeClient(self.server.scope_url)
+                    
+                    # Get pipeline_id (pipeline should already be loaded by app.py)
+                    pipeline_id = "streamdiffusionv2"  # default
+                    if hasattr(self.server, 'scope_pipeline_id') and self.server.scope_pipeline_id:
+                        pipeline_id = self.server.scope_pipeline_id
+                    
+                    # Get initial parameters from bridge config
+                    initial_params = {}
+                    if hasattr(self.server, 'bridge') and self.server.bridge:
+                        cfg = self.server.bridge.config
+                        initial_params = {
+                            "prompts": [cfg.prompt],
+                            "negative_prompt": cfg.negative_prompt,
+                            "guidance_scale": cfg.guidance_scale,
+                        }
+                    
+                    # Add pipeline_id
+                    initial_params["pipeline_id"] = pipeline_id
+                    
+                    answer = client.send_offer(offer_sdp, sdp_type="offer", initial_params=initial_params)
+                    
+                    self.server.scope_requests[request_id]['answer'] = answer.get('sdp', '')
+                    self.server.scope_requests[request_id]['session_id'] = answer.get('sessionId', '')
+                    self.server.scope_requests[request_id]['status'] = 'ready'
+                    
+                except Exception as e:
+                    import traceback
+                    traceback.print_exc()
+                    self.server.scope_requests[request_id]['error'] = str(e)
+                    self.server.scope_requests[request_id]['status'] = 'error'
+            
+            threading.Thread(target=exchange_async, daemon=True).start()
+            
+            response = json.dumps({'id': request_id}).encode()
+            self.send_response(202)
+            self._send_cors_headers()
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', len(response))
+            self.end_headers()
+            self.wfile.write(response)
+            
+        except Exception as e:
+            error = str(e).encode()
+            self.send_response(500)
+            self._send_cors_headers()
+            self.send_header('Content-Type', 'text/plain')
+            self.send_header('Content-Length', len(error))
+            self.end_headers()
+            self.wfile.write(error)
+    
+    def _serve_scope_result(self, request_id: str):
+        """Serve Scope WebRTC result (polling)"""
+        req_data = self.server.scope_requests.get(request_id)
+        
+        if not req_data:
+            self.send_error(404, "Request not found")
+            return
+        
+        if req_data['status'] == 'pending':
+            response = json.dumps({'status': 'pending'}).encode()
+            self.send_response(202)
+            self._send_cors_headers()
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', len(response))
+            self.end_headers()
+            self.wfile.write(response)
+        elif req_data['status'] == 'ready':
+            response = json.dumps({
+                'sdp': req_data['answer'],
+                'sessionId': req_data['session_id']
+            }).encode()
+            self.send_response(200)
+            self._send_cors_headers()
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', len(response))
+            self.end_headers()
+            self.wfile.write(response)
+            del self.server.scope_requests[request_id]
+        else:
+            error = json.dumps({'error': req_data['error'] or 'Unknown error'}).encode()
+            self.send_response(500)
+            self._send_cors_headers()
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', len(error))
+            self.end_headers()
+            self.wfile.write(error)
+            del self.server.scope_requests[request_id]
+    
+    def _handle_scope_ice_candidate(self, body: bytes):
+        """Proxy ICE candidate to Scope (trickle ICE)"""
+        try:
+            payload = json.loads(body.decode('utf-8'))
+            session_id = payload.get('sessionId')
+            candidate = payload.get('candidate')
+            sdp_mid = payload.get('sdpMid')
+            sdp_mline_index = payload.get('sdpMLineIndex')
+            
+            if not session_id or not candidate:
+                raise ValueError("Missing sessionId or candidate")
+            
+            from scope_client import ScopeClient
+            client = ScopeClient(self.server.scope_url)
+            client.session_id = session_id  # Set the session ID
+            client.send_ice_candidate(candidate, sdp_mid, sdp_mline_index)
+            
+            response = json.dumps({'success': True}).encode()
+            self.send_response(200)
+            self._send_cors_headers()
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', len(response))
+            self.end_headers()
+            self.wfile.write(response)
+            
+        except Exception as e:
+            error = json.dumps({'error': str(e)}).encode()
+            self.send_response(500)
+            self._send_cors_headers()
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', len(error))
+            self.end_headers()
+            self.wfile.write(error)
     
     def _handle_whep_proxy(self, body: bytes):
         """Proxy WHEP offer"""
@@ -579,9 +846,14 @@ class DaydreamServer(socketserver.ThreadingTCPServer):
         self.whip_url = None
         self.whep_url = None
         
+        # Backend mode: 'daydream' or 'scope'
+        self.backend_mode = 'daydream'
+        self.scope_url = None
+        
         # Request tracking
         self.whip_requests: Dict[str, dict] = {}
         self.whep_requests: Dict[str, dict] = {}
+        self.scope_requests: Dict[str, dict] = {}
         
         # WebSocket clients
         self.ws_clients: Set = set()
@@ -621,9 +893,18 @@ class DaydreamServer(socketserver.ThreadingTCPServer):
                     self.ws_clients.discard(client)
     
     def set_stream_info(self, stream_id: str, whip_url: str):
-        """Update stream information"""
+        """Update stream information (Daydream Cloud mode)"""
         self.stream_id = stream_id
         self.whip_url = whip_url
+        self.backend_mode = 'daydream'
+        self.state = "STREAMING"
+    
+    def set_scope_info(self, scope_url: str, pipeline_id: str = "streamdiffusionv2"):
+        """Update stream information (Scope mode)"""
+        self.scope_url = scope_url
+        self.scope_pipeline_id = pipeline_id
+        self.backend_mode = 'scope'
+        self.stream_id = 'scope-session'
         self.state = "STREAMING"
     
     def clear_stream_info(self):
@@ -631,6 +912,9 @@ class DaydreamServer(socketserver.ThreadingTCPServer):
         self.stream_id = None
         self.whip_url = None
         self.whep_url = None
+        self.scope_url = None
+        self.scope_pipeline_id = None
+        self.backend_mode = 'daydream'
         self.state = "IDLE"
 
 
@@ -769,9 +1053,16 @@ RELAY_HTML = '''<!DOCTYPE html>
                 const resp = await fetch('/status');
                 const status = await resp.json();
                 
-                if (status.state === 'STREAMING' && status.whip_url) {
-                    setStatus('Starting WHIP...');
-                    await startWHIP();
+                if (status.state === 'STREAMING') {
+                    if (status.backend_mode === 'scope' && status.scope_url) {
+                        setStatus('Connecting to Scope...');
+                        await startScope();
+                    } else if (status.whip_url) {
+                        setStatus('Starting WHIP...');
+                        await startWHIP();
+                    } else {
+                        setTimeout(pollStatus, 500);
+                    }
                 } else {
                     setTimeout(pollStatus, 500);
                 }
@@ -835,6 +1126,214 @@ RELAY_HTML = '''<!DOCTYPE html>
                 }
                 
                 throw new Error('WHIP failed');
+            }
+        }
+        
+        // Scope connection (bidirectional WebRTC) - uses Trickle ICE like Scope frontend
+        let scopePc = null;
+        let scopeSessionId = null;
+        let scopeIceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
+        let queuedCandidates = [];
+        
+        async function getScopeIceServers() {
+            try {
+                const resp = await fetch(`http://${location.hostname}:${SDP_PORT}/scope/ice-servers`);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data.iceServers && data.iceServers.length > 0) {
+                        console.log('[Relay] Got ICE servers from Scope:', data.iceServers.length);
+                        return data.iceServers;
+                    }
+                }
+            } catch (e) {
+                console.log('[Relay] Could not get ICE servers from Scope:', e);
+            }
+            return [{ urls: 'stun:stun.l.google.com:19302' }];
+        }
+        
+        // Send ICE candidates to Scope (trickle ICE)
+        async function sendIceCandidateToScope(candidate) {
+            if (!scopeSessionId) {
+                console.log('[Relay] No session ID yet, queuing candidate');
+                queuedCandidates.push(candidate);
+                return;
+            }
+            
+            try {
+                const resp = await fetch(`http://${location.hostname}:${SDP_PORT}/scope/ice-candidate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sessionId: scopeSessionId,
+                        candidate: candidate.candidate,
+                        sdpMid: candidate.sdpMid,
+                        sdpMLineIndex: candidate.sdpMLineIndex
+                    })
+                });
+                if (resp.ok) {
+                    console.log('[Relay] Sent ICE candidate to Scope');
+                }
+            } catch (e) {
+                console.log('[Relay] Failed to send ICE candidate:', e);
+            }
+        }
+        
+        // Flush queued candidates after we get session ID
+        async function flushQueuedCandidates() {
+            if (queuedCandidates.length > 0 && scopeSessionId) {
+                console.log('[Relay] Flushing', queuedCandidates.length, 'queued candidates');
+                for (const c of queuedCandidates) {
+                    await sendIceCandidateToScope(c);
+                }
+                queuedCandidates = [];
+            }
+        }
+        
+        // Force VP8 codec for aiortc compatibility (like Scope frontend does)
+        function setVP8Preference(transceiver) {
+            if (!transceiver || !transceiver.setCodecPreferences) return;
+            try {
+                const codecs = RTCRtpReceiver.getCapabilities('video')?.codecs || [];
+                const vp8 = codecs.filter(c => c.mimeType.toLowerCase() === 'video/vp8');
+                if (vp8.length > 0) {
+                    transceiver.setCodecPreferences(vp8);
+                    console.log('[Relay] Forced VP8-only codec for aiortc');
+                }
+            } catch (e) {
+                console.log('[Relay] Could not set VP8 preference:', e);
+            }
+        }
+        
+        let scopeDataChannel = null;
+        
+        async function startScope() {
+            // Get ICE servers from Scope (may include TURN for NAT traversal)
+            scopeIceServers = await getScopeIceServers();
+            console.log('[Relay] Using ICE servers:', scopeIceServers);
+            
+            canvasStream = canvas.captureStream(30);
+            const videoTrack = canvasStream.getVideoTracks()[0];
+            
+            scopePc = new RTCPeerConnection({
+                iceServers: scopeIceServers
+            });
+            
+            // Create data channel for parameter updates (BEFORE creating offer)
+            scopeDataChannel = scopePc.createDataChannel('parameters', { ordered: true });
+            scopeDataChannel.onopen = () => {
+                console.log('[Relay] Data channel opened for Scope parameters');
+            };
+            scopeDataChannel.onclose = () => {
+                console.log('[Relay] Data channel closed');
+            };
+            scopeDataChannel.onerror = (e) => {
+                console.error('[Relay] Data channel error:', e);
+            };
+            
+            // Add video track for sending (like Scope frontend)
+            console.log('[Relay] Adding video track for sending');
+            const sender = scopePc.addTrack(videoTrack, canvasStream);
+            const transceiver = scopePc.getTransceivers().find(t => t.sender === sender);
+            setVP8Preference(transceiver);
+            
+            // Handle incoming video track (AI output from Scope)
+            scopePc.ontrack = (e) => {
+                console.log('[Relay] Scope track received:', e.track.kind);
+                if (e.track.kind === 'video') {
+                    console.log('[Relay] Setting video source from Scope');
+                    video.srcObject = e.streams[0] || new MediaStream([e.track]);
+                    video.play().catch(err => console.log('[Relay] Video play error:', err));
+                }
+            };
+            
+            scopePc.oniceconnectionstatechange = () => {
+                console.log('[Relay] Scope ICE:', scopePc.iceConnectionState);
+                if (scopePc.iceConnectionState === 'connected') {
+                    setStatus('Connected to Scope!');
+                    hideStatus();
+                } else if (scopePc.iceConnectionState === 'failed') {
+                    setStatus('Connection failed');
+                }
+            };
+            
+            scopePc.onconnectionstatechange = () => {
+                console.log('[Relay] Scope connection:', scopePc.connectionState);
+                if (scopePc.connectionState === 'connected') {
+                    hideStatus();
+                }
+            };
+            
+            // Trickle ICE: Send candidates to Scope as they're discovered
+            scopePc.onicecandidate = async (e) => {
+                if (e.candidate) {
+                    console.log('[Relay] ICE candidate:', e.candidate.type, e.candidate.protocol);
+                    await sendIceCandidateToScope(e.candidate);
+                } else {
+                    console.log('[Relay] ICE gathering complete');
+                }
+            };
+            
+            // Create offer and send immediately (trickle ICE - don't wait for gathering)
+            const offer = await scopePc.createOffer();
+            await scopePc.setLocalDescription(offer);
+            
+            console.log('[Relay] Sending offer to Scope immediately (trickle ICE)');
+            
+            // Send offer to our proxy (which forwards to Scope)
+            const SCOPE_URL = `http://${location.hostname}:${SDP_PORT}/scope/offer`;
+            const resp = await fetch(SCOPE_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sdp: scopePc.localDescription.sdp })
+            });
+            
+            if (resp.status === 202) {
+                const { id } = await resp.json();
+                await pollScopeResult(id);
+            } else if (resp.ok) {
+                const data = await resp.json();
+                console.log('[Relay] Got Scope answer, sessionId:', data.sessionId);
+                scopeSessionId = data.sessionId;
+                await scopePc.setRemoteDescription({ type: 'answer', sdp: data.sdp });
+                await flushQueuedCandidates();
+            }
+        }
+        
+        // Function to send parameter updates to Scope via data channel
+        function sendScopeParams(params) {
+            if (scopeDataChannel && scopeDataChannel.readyState === 'open') {
+                console.log('[Relay] Sending params to Scope:', params);
+                scopeDataChannel.send(JSON.stringify(params));
+                return true;
+            } else {
+                console.warn('[Relay] Data channel not open, cannot send params');
+                return false;
+            }
+        }
+        
+        // Expose to parent window for control panel
+        window.sendScopeParams = sendScopeParams;
+        
+        async function pollScopeResult(requestId) {
+            while (true) {
+                const resp = await fetch(`http://${location.hostname}:${SDP_PORT}/scope/result/${requestId}`);
+                
+                if (resp.status === 202) {
+                    await new Promise(r => setTimeout(r, 100));
+                    continue;
+                }
+                
+                if (resp.ok) {
+                    const data = await resp.json();
+                    console.log('[Relay] Got Scope answer, sessionId:', data.sessionId);
+                    scopeSessionId = data.sessionId;
+                    await scopePc.setRemoteDescription({ type: 'answer', sdp: data.sdp });
+                    await flushQueuedCandidates();
+                    return;
+                }
+                
+                const errData = await resp.json().catch(() => ({ error: 'Scope connection failed' }));
+                throw new Error(errData.error || 'Scope failed');
             }
         }
         
@@ -919,6 +1418,14 @@ RELAY_HTML = '''<!DOCTYPE html>
         video.onplaying = () => {
             console.log('[Relay] Video playing!');
             hideStatus();
+        };
+        
+        video.onloadeddata = () => {
+            console.log('[Relay] Video data loaded');
+        };
+        
+        video.onerror = (e) => {
+            console.error('[Relay] Video error:', e);
         };
         
         // Start

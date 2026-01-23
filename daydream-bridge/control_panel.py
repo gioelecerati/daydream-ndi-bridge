@@ -163,6 +163,51 @@ CONTROL_PANEL_HTML = '''<!DOCTYPE html>
             font-size: 12px;
         }
         
+        /* Backend tabs */
+        .backend-tabs {
+            display: flex;
+            gap: 4px;
+            background: var(--bg-card);
+            padding: 4px;
+            border-radius: 6px;
+        }
+        
+        .backend-tab {
+            flex: 1;
+            padding: 10px;
+            background: transparent;
+            border: none;
+            color: var(--text-dim);
+            font-family: inherit;
+            font-size: 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        
+        .backend-tab:hover {
+            color: var(--text);
+        }
+        
+        .backend-tab.active {
+            background: var(--bg-input);
+            color: var(--text);
+        }
+        
+        #scopeConfig input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text);
+        }
+        
+        #scopeConfig input[type="text"]:focus {
+            outline: none;
+            border-color: var(--text-dim);
+        }
+        
         /* Right Panel - Controls */
         .controls-panel {
             flex: 1;
@@ -519,7 +564,8 @@ CONTROL_PANEL_HTML = '''<!DOCTYPE html>
             <div class="controls-header">Controls</div>
             <div class="controls-scroll">
                 
-                <div class="section">
+                <!-- Daydream Cloud Controls -->
+                <div class="section daydream-controls" id="daydreamControls">
                     <div class="section-title">Processing</div>
                     <div class="slider-row">
                         <span class="slider-label">Denoise</span>
@@ -537,7 +583,7 @@ CONTROL_PANEL_HTML = '''<!DOCTYPE html>
                     </div>
                 </div>
                 
-                <div class="section">
+                <div class="section daydream-controls" id="controlnetsSection">
                     <div class="section-title">ControlNets</div>
                     <div class="slider-row">
                         <span class="slider-label">Depth</span>
@@ -559,6 +605,64 @@ CONTROL_PANEL_HTML = '''<!DOCTYPE html>
                             <input type="range" id="tileScale" min="0" max="1" step="0.01" value="0.21">
                         </div>
                         <span class="slider-value" id="tileScaleValue">0.21</span>
+                    </div>
+                </div>
+                
+                <!-- Scope Controls (hidden by default) -->
+                <div class="section scope-controls" id="scopeControls" style="display: none;">
+                    <div class="section-title">Scope Parameters</div>
+                    <div class="slider-row">
+                        <span class="slider-label">Noise Scale</span>
+                        <div class="slider-track">
+                            <input type="range" id="noiseScale" min="0" max="1" step="0.01" value="0.7" oninput="updateScopeSlider('noiseScale', 'noise_scale')">
+                        </div>
+                        <span class="slider-value" id="noiseScaleValue">0.70</span>
+                    </div>
+                    <div class="slider-row">
+                        <span class="slider-label">Guidance</span>
+                        <div class="slider-track">
+                            <input type="range" id="scopeGuidance" min="1" max="15" step="0.1" value="1.0" oninput="updateScopeSlider('scopeGuidance', 'guidance_scale')">
+                        </div>
+                        <span class="slider-value" id="scopeGuidanceValue">1.0</span>
+                    </div>
+                    <div class="slider-row">
+                        <span class="slider-label">Cache Bias</span>
+                        <div class="slider-track">
+                            <input type="range" id="kvCacheBias" min="0.01" max="1" step="0.01" value="1.0" oninput="updateScopeSlider('kvCacheBias', 'kv_cache_attention_bias')">
+                        </div>
+                        <span class="slider-value" id="kvCacheBiasValue">1.00</span>
+                    </div>
+                    <div class="input-group" style="margin-top: 16px;">
+                        <label class="input-label">Prompt</label>
+                        <textarea id="scopePrompt" style="min-height: 80px;">anime style, vibrant colors, detailed</textarea>
+                    </div>
+                    <button class="btn" onclick="updateScopePrompt()" style="margin-top: 8px; width: 100%;">Update Prompt</button>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">Backend</div>
+                    <div class="backend-tabs">
+                        <button class="backend-tab active" id="tabDaydream" onclick="switchBackend('daydream')">Daydream Cloud</button>
+                        <button class="backend-tab" id="tabScope" onclick="switchBackend('scope')">Scope (Self-hosted)</button>
+                    </div>
+                    <div id="scopeConfig" style="display: none; margin-top: 12px;">
+                        <div class="input-group">
+                            <label class="input-label">Scope URL (RunPod or local)</label>
+                            <input type="text" id="scopeUrl" placeholder="https://xxx-8000.proxy.runpod.net" style="font-family: 'JetBrains Mono', monospace; font-size: 12px;">
+                        </div>
+                        <button class="btn" onclick="testScopeConnection()" style="margin-top: 8px; width: 100%;">Test Connection</button>
+                        <div id="scopeStatus" style="margin-top: 8px; font-size: 11px; color: var(--text-dim);"></div>
+                        
+                        <div class="input-group" style="margin-top: 16px;">
+                            <label class="input-label">Pipeline</label>
+                            <select id="scopePipeline">
+                                <option value="streamdiffusionv2">StreamDiffusion V2 (512x512)</option>
+                                <option value="longlive">LongLive (320x576)</option>
+                                <option value="krea-realtime-video">Krea Realtime Video (320x576)</option>
+                            </select>
+                        </div>
+                        <button class="btn" id="loadPipelineBtn" onclick="loadPipeline()" style="margin-top: 8px; width: 100%;">Load Pipeline</button>
+                        <div id="pipelineStatus" style="margin-top: 8px; font-size: 11px; color: var(--text-dim);"></div>
                     </div>
                 </div>
                 
@@ -602,7 +706,207 @@ CONTROL_PANEL_HTML = '''<!DOCTYPE html>
     <script>
         let selectedSource = null;
         let isStreaming = false;
+        let backendMode = 'daydream';  // 'daydream' or 'scope'
         
+        // Backend switching
+        function switchBackend(mode) {
+            backendMode = mode;
+            document.getElementById('tabDaydream').classList.toggle('active', mode === 'daydream');
+            document.getElementById('tabScope').classList.toggle('active', mode === 'scope');
+            document.getElementById('scopeConfig').style.display = mode === 'scope' ? 'block' : 'none';
+            
+            // Show/hide backend-specific controls
+            const modelSection = document.getElementById('modelId').parentElement;
+            modelSection.style.display = mode === 'daydream' ? 'block' : 'none';
+            
+            // Daydream controls (Processing, ControlNets)
+            document.getElementById('daydreamControls').style.display = mode === 'daydream' ? 'block' : 'none';
+            document.getElementById('controlnetsSection').style.display = mode === 'daydream' ? 'block' : 'none';
+            
+            // Scope controls
+            document.getElementById('scopeControls').style.display = mode === 'scope' ? 'block' : 'none';
+        }
+        
+        async function testScopeConnection() {
+            const url = document.getElementById('scopeUrl').value.trim();
+            const statusEl = document.getElementById('scopeStatus');
+            
+            if (!url) {
+                statusEl.innerHTML = '<span style="color: #f33;">Please enter a Scope URL</span>';
+                return;
+            }
+            
+            statusEl.innerHTML = 'Testing connection...';
+            
+            try {
+                const resp = await fetch('/api/scope/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                const data = await resp.json();
+                
+                if (data.reachable) {
+                    statusEl.innerHTML = `<span style="color: #4f4;">✓ Connected!</span> ${data.pipelines?.length || 0} pipelines available`;
+                    // Check pipeline status after connection test
+                    checkPipelineStatus();
+                } else {
+                    statusEl.innerHTML = `<span style="color: #f33;">✗ ${data.error || 'Connection failed'}</span>`;
+                }
+            } catch (e) {
+                statusEl.innerHTML = `<span style="color: #f33;">✗ ${e.message}</span>`;
+            }
+        }
+        
+        let pipelineStatusInterval = null;
+        
+        async function checkPipelineStatus() {
+            const url = document.getElementById('scopeUrl').value.trim();
+            const statusEl = document.getElementById('pipelineStatus');
+            const loadBtn = document.getElementById('loadPipelineBtn');
+            
+            if (!url) return;
+            
+            console.log('[Pipeline] Checking status...');
+            
+            try {
+                const resp = await fetch('/api/scope/pipeline/status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                const data = await resp.json();
+                console.log('[Pipeline] Status response:', data);
+                
+                if (data.status === 'loaded') {
+                    statusEl.innerHTML = `<span style="color: #4f4;">✓ Pipeline loaded:</span> ${data.pipeline_id || 'unknown'}`;
+                    loadBtn.disabled = false;
+                    loadBtn.textContent = 'Load Pipeline';
+                    if (pipelineStatusInterval) {
+                        clearInterval(pipelineStatusInterval);
+                        pipelineStatusInterval = null;
+                        console.log('[Pipeline] Stopped polling - pipeline loaded');
+                    }
+                } else if (data.status === 'loading') {
+                    statusEl.innerHTML = '<span style="color: #fa0;">⏳ Loading pipeline... (this may take a few minutes)</span>';
+                    loadBtn.disabled = true;
+                    loadBtn.textContent = 'Loading...';
+                } else if (data.status === 'not_loaded') {
+                    statusEl.innerHTML = '<span style="color: var(--text-dim);">No pipeline loaded</span>';
+                    loadBtn.disabled = false;
+                    loadBtn.textContent = 'Load Pipeline';
+                } else if (data.status === 'error') {
+                    statusEl.innerHTML = `<span style="color: #f33;">✗ Error: ${data.error || 'Unknown error'}</span>`;
+                    loadBtn.disabled = false;
+                    loadBtn.textContent = 'Retry Load';
+                } else {
+                    console.log('[Pipeline] Unknown status:', data.status);
+                    statusEl.innerHTML = `<span style="color: var(--text-dim);">Status: ${data.status || 'unknown'}</span>`;
+                }
+            } catch (e) {
+                console.error('[Pipeline] Status check error:', e);
+                statusEl.innerHTML = `<span style="color: #f33;">✗ ${e.message}</span>`;
+            }
+        }
+        
+        async function loadPipeline() {
+            const url = document.getElementById('scopeUrl').value.trim();
+            const pipelineId = document.getElementById('scopePipeline').value;
+            const statusEl = document.getElementById('pipelineStatus');
+            const loadBtn = document.getElementById('loadPipelineBtn');
+            
+            if (!url) {
+                statusEl.innerHTML = '<span style="color: #f33;">Please enter a Scope URL first</span>';
+                return;
+            }
+            
+            console.log('[Pipeline] Loading pipeline:', pipelineId);
+            statusEl.innerHTML = '<span style="color: #fa0;">⏳ Initiating pipeline load...</span>';
+            loadBtn.disabled = true;
+            loadBtn.textContent = 'Loading...';
+            
+            try {
+                const resp = await fetch('/api/scope/pipeline/load', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, pipeline_id: pipelineId })
+                });
+                const data = await resp.json();
+                console.log('[Pipeline] Load response:', data);
+                
+                if (data.success) {
+                    statusEl.innerHTML = '<span style="color: #fa0;">⏳ Loading pipeline... (this may take a few minutes)</span>';
+                    // Start polling for status
+                    if (pipelineStatusInterval) clearInterval(pipelineStatusInterval);
+                    pipelineStatusInterval = setInterval(checkPipelineStatus, 3000);
+                    console.log('[Pipeline] Started polling every 3s');
+                    // Also check immediately
+                    checkPipelineStatus();
+                } else {
+                    statusEl.innerHTML = `<span style="color: #f33;">✗ ${data.error || 'Failed to load'}</span>`;
+                    loadBtn.disabled = false;
+                    loadBtn.textContent = 'Load Pipeline';
+                }
+            } catch (e) {
+                console.error('[Pipeline] Load error:', e);
+                statusEl.innerHTML = `<span style="color: #f33;">✗ ${e.message}</span>`;
+                loadBtn.disabled = false;
+                loadBtn.textContent = 'Load Pipeline';
+            }
+        }
+        
+        // Scope parameter updates via data channel
+        function getRelayWindow() {
+            // Get the relay iframe by ID
+            const iframe = document.getElementById('outputFrame');
+            if (iframe && iframe.src && iframe.contentWindow) {
+                return iframe.contentWindow;
+            }
+            return null;
+        }
+        
+        function updateScopeSlider(sliderId, paramName) {
+            const slider = document.getElementById(sliderId);
+            const value = parseFloat(slider.value);
+            
+            // Update the display value
+            const valueEl = document.getElementById(sliderId + 'Value');
+            if (valueEl) {
+                valueEl.textContent = value.toFixed(2);
+            }
+            
+            // Update slider fill
+            updateSlider(slider);
+            
+            // Send to Scope via relay data channel
+            const relayWindow = getRelayWindow();
+            if (relayWindow && relayWindow.sendScopeParams) {
+                const params = {};
+                params[paramName] = value;
+                relayWindow.sendScopeParams(params);
+                console.log('[Scope] Sent param:', paramName, value);
+            } else {
+                console.log('[Scope] Relay not ready for param update');
+            }
+        }
+        
+        function updateScopePrompt() {
+            const prompt = document.getElementById('scopePrompt').value.trim();
+            if (!prompt) return;
+            
+            const relayWindow = getRelayWindow();
+            if (relayWindow && relayWindow.sendScopeParams) {
+                // Scope expects prompts as [{text: "...", weight: 1.0}]
+                relayWindow.sendScopeParams({
+                    prompts: [{ text: prompt, weight: 1.0 }]
+                });
+                console.log('[Scope] Sent prompt:', prompt);
+                showToast('Prompt updated', 'success');
+            } else {
+                showToast('Not connected to Scope', 'error');
+            }
+        }
+
         // Slider fill effect
         function updateSlider(slider) {
             const pct = ((slider.value - slider.min) / (slider.max - slider.min)) * 100;
@@ -668,10 +972,10 @@ CONTROL_PANEL_HTML = '''<!DOCTYPE html>
         
         // Config
         function getConfig() {
-            return {
+            const config = {
+                backend: backendMode,
                 prompt: document.getElementById('prompt').value,
                 negative_prompt: document.getElementById('negativePrompt').value,
-                model_id: document.getElementById('modelId').value,
                 guidance_scale: parseFloat(document.getElementById('guidance').value),
                 delta: parseFloat(document.getElementById('delta').value),
                 depth_scale: parseFloat(document.getElementById('depthScale').value),
@@ -679,6 +983,15 @@ CONTROL_PANEL_HTML = '''<!DOCTYPE html>
                 tile_scale: parseFloat(document.getElementById('tileScale').value),
                 source_index: selectedSource
             };
+            
+            if (backendMode === 'daydream') {
+                config.model_id = document.getElementById('modelId').value;
+            } else {
+                config.scope_url = document.getElementById('scopeUrl').value.trim();
+                config.pipeline_id = document.getElementById('scopePipeline').value;
+            }
+            
+            return config;
         }
         
         // Stream control

@@ -71,30 +71,45 @@ The bridge automatically scans for NDI sources on your network. Common sources i
 - **OBS Studio** - Use the NDI plugin
 - **Any NDI-capable application**
 
-## Alternative: Self-Hosted with Daydream Scope
+## Backend Options
 
-If you have a powerful GPU (Nvidia RTX 3090/4090/5090 with **24GB+ VRAM**), you can run AI video generation locally using [Daydream Scope](https://github.com/daydreamlive/scope) instead of the cloud API.
+The bridge supports two backends:
 
-**Scope features:**
-- Run everything locally — no cloud costs or internet required
-- StreamDiffusionV2, LongLive, Krea Realtime Video, and more models
+### 1. Daydream Cloud (Default)
+Uses the Daydream cloud API for processing. Easy to set up, just sign in and go.
+- 10 hours free trial
+- No GPU required
+- StreamDiffusion v1 models
+
+### 2. Scope (Self-Hosted or RunPod)
+Use [Daydream Scope](https://github.com/daydreamlive/scope) for more models and no cloud costs.
+
+**Features:**
+- StreamDiffusionV2, LongLive, Krea Realtime Video, and more
 - LoRA support for custom styles
-- Interactive UI with timeline editor
+- Run locally or on RunPod
 
-**Quick start:**
-1. Download the [Windows desktop app](https://github.com/daydreamlive/scope/releases) or install manually
-2. For manual install:
-   ```bash
-   git clone https://github.com/daydreamlive/scope.git
-   cd scope
-   uv run build
-   uv run daydream-scope
-   ```
-3. Open `http://localhost:8000` in your browser
+**Using Scope with this bridge:**
 
-**Cloud option:** No GPU? Use the [RunPod template](https://github.com/daydreamlive/scope#runpod) to run Scope in the cloud.
+1. **Start Scope** (locally or on RunPod)
+   - Local: `uv run daydream-scope` → `http://localhost:8000`
+   - RunPod: Use the [RunPod template](https://github.com/daydreamlive/scope#runpod) → get your proxy URL
 
-See the [Scope documentation](https://github.com/daydreamlive/scope) for full setup instructions.
+2. **In the bridge control panel:**
+   - Switch to **"Scope (Self-hosted)"** tab
+   - Paste your Scope URL (e.g., `https://xxx-8000.proxy.runpod.net`)
+   - Click **Test Connection** to verify
+   - Select NDI source and start streaming
+
+**RunPod setup:**
+1. Deploy the [Scope RunPod template](https://runpod.io/console/deploy?template=xxx)
+2. Set `HF_TOKEN` environment variable for TURN servers (required for WebRTC through firewalls)
+3. Wait for deployment, get your proxy URL from RunPod
+4. Paste the URL in the bridge and stream!
+
+**GPU requirements for self-hosting:**
+- Minimum: RTX 3090/4090 (24GB VRAM)
+- For Krea Realtime Video: RTX 5090 or better (32GB+ VRAM)
 
 ## License
 

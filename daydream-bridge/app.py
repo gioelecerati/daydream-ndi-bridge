@@ -493,6 +493,35 @@ class DaydreamBridge:
         except Exception as e:
             print(f"✗ Failed to start stream: {e}")
     
+    def _start_streaming_scope(self, scope_url: str, capture_mode: str = 'ndi', pipeline_id: str = 'streamdiffusionv2'):
+        """Start streaming to a Scope instance"""
+        if self.streaming:
+            print("Already streaming. Stop first with 's'")
+            return
+        
+        print(f"\nConnecting to Scope: {scope_url}")
+        print(f"  Pipeline: {pipeline_id}")
+        
+        try:
+            # Set the scope URL on the server
+            self.server.set_scope_info(scope_url, pipeline_id)
+            self.sdp_server.set_scope_info(scope_url, pipeline_id)
+            
+            self.streaming = True
+            self.capture_mode = capture_mode
+            self.frame_count = 0
+            self.stream = None  # No Daydream stream for Scope mode
+            
+            threading.Thread(target=self._frame_loop, daemon=True).start()
+            
+            print(f"\n✓ Streaming to Scope started!")
+            print(f"  Scope URL: {scope_url}")
+            print(f"  Capture: {capture_mode}")
+            print(f"  Press 'o' to open output in browser")
+            
+        except Exception as e:
+            print(f"✗ Failed to start Scope stream: {e}")
+    
     def _stop_streaming(self):
         """Stop streaming"""
         if not self.streaming:

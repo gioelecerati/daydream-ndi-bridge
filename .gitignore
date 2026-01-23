@@ -43,3 +43,11 @@ api_key.txt
 secrets.txt
 .env
 
+# Scope (reference, not part of this project)
+scope/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
