@@ -284,7 +284,14 @@ class DaydreamBridge:
             return
         
         print("\nScanning for NDI sources...")
-        self.ndi_sources = self.ndi_receiver.find_sources(timeout_ms=3000)
+        # Initial warm-up scan to trigger NDI discovery
+        self.ndi_receiver.find_sources(timeout_ms=500)
+        
+        print("Waiting for network sources...")
+        time.sleep(2.0)
+        
+        # Final scan to get all discovered sources
+        self.ndi_sources = self.ndi_receiver.find_sources(timeout_ms=1000)
         
         if self.ndi_sources:
             print(f"Found {len(self.ndi_sources)} source(s):")
