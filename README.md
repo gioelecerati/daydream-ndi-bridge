@@ -1,6 +1,7 @@
 # Daydream StreamDiffusionV1 NDI Bridge
 
-Real-time AI video transformation bridge using the [Daydream API](https://docs.daydream.live). Capture video via NDI and transform it with AI in real-time.
+Real-time AI video transformation bridge using the [Daydream API](https://docs.daydream.live). Capture video via NDI and transform it with AI in real-time.  
+
 [Tutorial using Resolume Arena + Daydream scope](https://app.daydream.live/creators/gioele/resolume-arena-longlive-with-ndi-and-scope)
 
 https://github.com/user-attachments/assets/63260dd5-2756-4a99-8c85-fbf68503a0b8
