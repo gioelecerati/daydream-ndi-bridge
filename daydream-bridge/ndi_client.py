@@ -30,10 +30,16 @@ def _load_ndi_library():
             ctypes.util.find_library("ndi"),
         ]
     elif system == "Windows":
+        import os
         lib_paths = [
             "Processing.NDI.Lib.x64.dll",
             ctypes.util.find_library("Processing.NDI.Lib.x64"),
         ]
+        # Check NDI runtime environment variables (set by NDI Tools installer)
+        for v in ['NDI_RUNTIME_DIR_V6', 'NDI_RUNTIME_DIR_V5', 'NDI_RUNTIME_DIR_V4', 'NDI_RUNTIME_DIR_V3']:
+            env_path = os.environ.get(v)
+            if env_path:
+                lib_paths.append(os.path.join(env_path, "Processing.NDI.Lib.x64.dll"))
     else:  # Linux
         lib_paths = [
             "/usr/lib/libndi.so",
