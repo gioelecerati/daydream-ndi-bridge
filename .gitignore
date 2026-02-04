@@ -45,6 +45,8 @@ secrets.txt
 
 # Scope (reference, not part of this project)
 scope/
+scope-overworld/
+scope-ndi/
 
 # Python
 __pycache__/
