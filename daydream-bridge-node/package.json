@@ -1,0 +1,31 @@
+{
+  "name": "daydream-bridge-node",
+  "version": "1.0.0",
+  "description": "Captures video from NDI sources and streams to Daydream AI - Node.js port",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "keywords": [
+    "ndi",
+    "daydream",
+    "webrtc",
+    "video",
+    "ai"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "ws": "^8.16.0",
+    "sharp": "^0.33.2",
+    "open": "^10.0.3",
+    "koffi": "^2.8.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+
