@@ -4,7 +4,8 @@
  */
 
 import { platform } from 'os';
-import { existsSync } from 'fs';
+import { existsSync, readdirSync } from 'fs';
+import { join } from 'path';
 
 // Lazy load koffi (may not be installed)
 let koffi;
@@ -16,6 +17,41 @@ try {
 } catch (e) {
   console.log('⚠ koffi not available. Run: npm install');
   console.log(`  Error: ${e.message}`);
+}
+
+/**
+ * Discover NDI runtime on Windows by scanning "C:\Program Files\NDI"
+ * for any "NDI * Runtime" folder, sorted newest-first (NDI 7 before 6 before 5).
+ */
+function discoverWindowsNdiPaths() {
+  const ndiRoot = 'C:\\Program Files\\NDI';
+  const discovered = [];
+
+  try {
+    const entries = readdirSync(ndiRoot, { withFileTypes: true });
+    // Collect runtime directories, e.g. "NDI 5 Runtime", "NDI 6 Runtime"
+    const runtimeDirs = entries
+      .filter((e) => e.isDirectory() && /^NDI \d+ Runtime$/i.test(e.name))
+      .map((e) => {
+        const version = parseInt(e.name.match(/\d+/)?.[0] ?? '0', 10);
+        return { name: e.name, version };
+      })
+      // Sort newest version first
+      .sort((a, b) => b.version - a.version);
+
+    for (const dir of runtimeDirs) {
+      // Runtime DLL lives in a version subfolder, e.g. v5/, v6/
+      const versionDir = join(ndiRoot, dir.name, `v${dir.version}`);
+      const dllPath = join(versionDir, 'Processing.NDI.Lib.x64.dll');
+      if (existsSync(dllPath)) {
+        discovered.push(dllPath);
+      }
+    }
+  } catch {
+    // NDI root doesn't exist or isn't readable
+  }
+
+  return discovered;
 }
 
 // NDI library paths by platform
@@ -35,15 +71,12 @@ function getNdiLibraryPath() {
       if (existsSync(p)) return p;
     }
   } else if (system === 'win32') {
-    // Windows
-    const paths = [
-      'C:\\Program Files\\NDI\\NDI 5 Runtime\\v5\\Processing.NDI.Lib.x64.dll',
-      'Processing.NDI.Lib.x64.dll',
-    ];
-    for (const p of paths) {
-      if (existsSync(p)) return p;
-    }
-    return 'Processing.NDI.Lib.x64'; // Let system find it
+    // Windows — auto-discover any installed NDI runtime version (newest first)
+    const discovered = discoverWindowsNdiPaths();
+    if (discovered.length > 0) return discovered[0];
+
+    // Fallback: let Windows search PATH
+    return 'Processing.NDI.Lib.x64';
   } else {
     // Linux
     const paths = ['/usr/lib/libndi.so', '/usr/local/lib/libndi.so', '/usr/lib/x86_64-linux-gnu/libndi.so.5'];
