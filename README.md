@@ -1,3 +1,5 @@
+NOTE: Since native NDI support got integrated in Daydream Scope, this bridge has no utility anymore. Still useful to use NDI with StreamDiffusion via the Daydream API
+
 # Daydream StreamDiffusionV1 NDI Bridge
 
 Real-time AI video transformation bridge using the [Daydream API](https://docs.daydream.live). Capture video via NDI and transform it with AI in real-time.
